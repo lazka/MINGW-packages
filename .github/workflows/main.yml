@@ -35,11 +35,7 @@ jobs:
         if: ${{ matrix.msystem != 'CLANGARM64' }}
         run: |
           Set-Location '${{ runner.temp }}'
-          Invoke-WebRequest -Uri 'https://download.sysinternals.com/files/Procdump.zip' -OutFile Procdump.zip
-          Expand-Archive Procdump.zip -DestinationPath .
           New-Item -Path '_dumps' -ItemType Directory
-          .\procdump64.exe -accepteula -ma -i "${{ runner.temp }}/_dumps"
-          .\procdump.exe -accepteula -ma -i "${{ runner.temp }}/_dumps"
 
       - uses: actions/checkout@v3
         with:
