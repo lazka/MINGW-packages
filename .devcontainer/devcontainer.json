@@ -1,4 +1,3 @@
 {
-    "build": { "dockerfile": "Dockerfile" },
-    "postCreateCommand": "echo \"Welcome! Run the 'msys2' command to start a MSYS2 shell\""
+    "build": { "dockerfile": "Dockerfile" }
 }
