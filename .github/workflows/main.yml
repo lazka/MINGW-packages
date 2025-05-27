@@ -88,6 +88,9 @@ jobs:
       - name: CI-Build
         shell: msys2 {0}
         id: build
+        env:
+          CI_HEAD_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+          CI_TARGET_REF: ${{ github.base_ref || github.event.repository.default_branch }}
         run: |
           cd "$(cygpath '${{ steps.facts.outputs.drive }}/_')"
           MINGW_ARCH=${{ matrix.msystem }} ./.ci/ci-build.sh

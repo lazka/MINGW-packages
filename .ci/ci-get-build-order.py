@@ -21,18 +21,29 @@ def run(*args, **kwargs):
 
 
 def get_toplevel():
-    path = run("git", "rev-parse", "--show-toplevel")
-    return run("cygpath", "-m", path)
+    path = run("git", "rev-parse", "--show-cdup")
+    return os.path.normpath(os.path.join(os.getcwd(), path.strip()))
 
 
-def list_changes(*git_args):
-    out = run("git", "log", *git_args, "upstream/master..").splitlines()
-    out += run("git", "log", *git_args, "HEAD^..").splitlines()
-    return list(dict.fromkeys(x.split("::")[-1] for x in sorted(out)))
+def git_refs() -> tuple[str, str]:
+    target_ref = os.environ.get("CI_TARGET_REF", "")
+    target_ref = target_ref.removeprefix("refs/heads/")
+    print(f"target ref: {target_ref!r}", file=sys.stderr)
+
+    head_ref = os.environ.get("CI_HEAD_REF", "")
+    head_ref = head_ref.removeprefix("refs/heads/")
+    print(f"head ref: {head_ref!r}", file=sys.stderr)
+    return f"origin/{target_ref}", head_ref
+
+
+def list_changes():
+    changed_files_result = run("git", "diff", "--name-only", "..".join(git_refs()), "--")
+    changed_files = changed_files_result.splitlines()
+    return frozenset(filter(None, map(str.strip, changed_files)))
 
 
 def list_packages():
-    changes = list_changes("--pretty=format:", "--name-only")
+    changes = list_changes()
     return [
         x.split("/")[0]
         for x in changes
