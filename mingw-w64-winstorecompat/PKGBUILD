@@ -3,9 +3,9 @@
 _realname=winstorecompat
 pkgbase=mingw-w64-${_realname}
 pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
-pkgver=14.0.0.r11.g01f73779b
+pkgver=14.0.0.r13.g7ad22457d
 pkgrel=1
-_commit='01f73779bff47496dfee1598ebc267b0a47b2fce'
+_commit='7ad22457d5c1b66da5f2fb89285a057df8b97281'
 pkgdesc="MinGW-w64 winRT compat library (mingw-w64)"
 arch=('any')
 mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64' 'clangarm64')
@@ -23,7 +23,7 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "git")
 options=('!buildflags' '!emptydirs')
 source=("mingw-w64"::"git+https://git.code.sf.net/p/mingw-w64/mingw-w64#commit=$_commit")
-sha256sums=('58d5abaa69dcd532124beeab898afdbd3b19c2c3849bb9a364486035195fc0fe')
+sha256sums=('4122c358f3b177e2ca561cb3c3c4770de72f408addc566162b51595bef3e20b3')
 
 pkgver() {
   cd "${srcdir}/mingw-w64"
