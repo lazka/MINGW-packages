@@ -1,0 +1,14 @@
+--- a/libs/flake/KoShapeBulkActionLock.h
++++ b/libs/flake/KoShapeBulkActionLock.h
+@@ -12,6 +12,11 @@
+ #include <KisAdaptedLock.h>
+ #include <QList>
+ #include <QRect>
+ 
++#include <type_traits>
++#include <unordered_map>
++#include <utility>
++#include <vector>
++
+ class KoShape;
+ struct KoShapeBulkActionInterface;
