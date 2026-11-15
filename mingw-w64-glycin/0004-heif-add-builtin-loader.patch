@@ -1,0 +1,95 @@
+diff --git a/glycin-loaders/glycin-heif/Cargo.toml b/glycin-loaders/glycin-heif/Cargo.toml
+index f393565..77eb846 100644
+--- a/glycin-loaders/glycin-heif/Cargo.toml
++++ b/glycin-loaders/glycin-heif/Cargo.toml
+@@ -10,12 +10,20 @@ repository.workspace = true
+ edition.workspace = true
+ rust-version.workspace = true
+ 
++[features]
++default = ["external"]
++builtin = ["glycin-utils/builtin"]
++external = ["glycin-utils/external"]
++
++[[bin]]
++name = "glycin-heif"
++required-features = ["external"]
++
+ [dependencies]
+ four-cc = "0.4.0"
+ glycin-utils = { workspace = true, features = [
+     "async-io",
+     "loader-utils",
+-    "external",
+ ] }
+ libheif-rs = { version = "2.7.0", default-features = false, features = [
+     "v1_20",
+diff --git a/glycin-loaders/glycin-heif/src/main.rs b/glycin-loaders/glycin-heif/src/lib.rs
+similarity index 95%
+rename from glycin-loaders/glycin-heif/src/main.rs
+rename to glycin-loaders/glycin-heif/src/lib.rs
+index 639de09..e16708e 100644
+--- a/glycin-loaders/glycin-heif/src/main.rs
++++ b/glycin-loaders/glycin-heif/src/lib.rs
+@@ -12,12 +12,30 @@ use libheif_rs::{
+     HeifErrorCode, ImageHandle, LibHeif, RgbChroma, StreamReader,
+ };
+ 
+-use crate::editing::ImgEditor;
++pub use crate::editing::ImgEditor;
+ 
+-init_main_loader_editor!(ImgDecoder, ImgEditor);
++#[cfg(feature = "builtin")]
++#[derive(Debug, Clone)]
++pub struct BuiltinHeif;
+ 
+-type FrameReceiver = Receiver<Result<(Frame<SharedMemory>, bool), ProcessError>>;
+-type FrameSender = Sender<Result<(Frame<SharedMemory>, bool), ProcessError>>;
++#[cfg(feature = "builtin")]
++impl Builtin for BuiltinHeif {
++    fn config(&self) -> &'static str {
++        include_str!("../glycin-heif.conf")
++    }
++
++    fn name(&self) -> &'static str {
++        "heif"
++    }
++}
++
++#[cfg(feature = "external")]
++type WorkerMemory = SharedMemory;
++#[cfg(not(feature = "external"))]
++type WorkerMemory = LocalMemory;
++
++type FrameReceiver = Receiver<Result<(Frame<WorkerMemory>, bool), ProcessError>>;
++type FrameSender = Sender<Result<(Frame<WorkerMemory>, bool), ProcessError>>;
+ 
+ #[derive(Default)]
+ pub struct ImgDecoder {
+@@ -163,7 +181,7 @@ fn animated_worker(data: Vec<u8>, mime_type: String, send: FrameSender) {
+ 
+                     let plane = image.planes().interleaved.unwrap();
+ 
+-                    let mut memory = SharedMemory::new(
++                    let mut memory = WorkerMemory::new(
+                         plane.stride.try_u64().unwrap() * u64::from(plane.height),
+                     )
+                     .unwrap();
+@@ -175,7 +193,7 @@ fn animated_worker(data: Vec<u8>, mime_type: String, send: FrameSender) {
+                         Frame::new(plane.width, plane.height, memory_format, texture).unwrap();
+                     frame.stride = plane.stride.try_u32().unwrap();
+                     frame.details.color_icc_profile = icc_profile
+-                        .map(SharedMemory::try_from_vec)
++                        .map(WorkerMemory::try_from_vec)
+                         .transpose()
+                         .unwrap();
+                     frame.details.color_cicp = cicp.map(|x| x.to_bytes());
+diff --git a/glycin-loaders/glycin-heif/src/main.rs b/glycin-loaders/glycin-heif/src/main.rs
+new file mode 100644
+--- /dev/null
++++ b/glycin-loaders/glycin-heif/src/main.rs
+@@ -0,0 +1,4 @@
++use glycin_heif::{ImgDecoder, ImgEditor};
++use glycin_utils::*;
++
++init_main_loader_editor!(ImgDecoder, ImgEditor);

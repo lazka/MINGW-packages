@@ -1,0 +1,79 @@
+diff --git a/glycin-loaders/glycin-svg/Cargo.toml b/glycin-loaders/glycin-svg/Cargo.toml
+index 8e56d27..49c48c0 100644
+--- a/glycin-loaders/glycin-svg/Cargo.toml
++++ b/glycin-loaders/glycin-svg/Cargo.toml
+@@ -10,14 +10,21 @@ repository.workspace = true
+ edition.workspace = true
+ rust-version.workspace = true
+ 
++[features]
++default = ["external"]
++builtin = ["glycin-utils/builtin"]
++external = ["glycin-utils/external"]
++
++[[bin]]
++name = "glycin-svg"
++required-features = ["external"]
++
+ [dependencies]
+ cairo-rs.workspace = true
+ gio.workspace = true
+-gio-unix.workspace = true
+ glycin-utils = { workspace = true, features = [
+     "async-io",
+     "loader-utils",
+-    "external",
+ ] }
+ rsvg = { package = "librsvg-rebind", version = "0.3.0" }
+ gufo-svg.workspace = true
+diff --git a/glycin-loaders/glycin-svg/src/bin/glycin-svg.rs b/glycin-loaders/glycin-svg/src/lib.rs
+similarity index 95%
+rename from glycin-loaders/glycin-svg/src/bin/glycin-svg.rs
+rename to glycin-loaders/glycin-svg/src/lib.rs
+index 80135fe..cd73571 100644
+--- a/glycin-loaders/glycin-svg/src/bin/glycin-svg.rs
++++ b/glycin-loaders/glycin-svg/src/lib.rs
+@@ -14,7 +14,20 @@ use rsvg::prelude::*;
+ /// <https://gitlab.gnome.org/GNOME/librsvg/-/issues/938>
+ pub const RSVG_MAX_SIZE: u32 = 32_767;
+ 
+-init_main_loader!(ImgDecoder);
++#[cfg(feature = "builtin")]
++#[derive(Debug, Clone)]
++pub struct BuiltinSvg;
++
++#[cfg(feature = "builtin")]
++impl Builtin for BuiltinSvg {
++    fn config(&self) -> &'static str {
++        include_str!("../glycin-svg.conf")
++    }
++
++    fn name(&self) -> &'static str {
++        "svg"
++    }
++}
+ 
+ #[derive(Default)]
+ pub struct ImgDecoder {
+@@ -44,7 +57,11 @@ pub fn thread<B: ByteData>(
+     let handle = rsvg::Handle::from_stream_sync(
+         &input_stream,
+         base_file.as_ref(),
+-        rsvg::HandleFlags::FLAG_UNLIMITED,
++        if cfg!(feature = "builtin") {
++            rsvg::HandleFlags::empty()
++        } else {
++            rsvg::HandleFlags::FLAG_UNLIMITED
++        },
+         gio::Cancellable::NONE,
+     )
+     .expected_error();
+diff --git a/glycin-loaders/glycin-svg/src/bin/glycin-svg.rs b/glycin-loaders/glycin-svg/src/bin/glycin-svg.rs
+new file mode 100644
+--- /dev/null
++++ b/glycin-loaders/glycin-svg/src/bin/glycin-svg.rs
+@@ -0,0 +1,4 @@
++use glycin_svg::ImgDecoder;
++use glycin_utils::*;
++
++init_main_loader!(ImgDecoder);

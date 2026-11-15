@@ -1,0 +1,60 @@
+diff --git a/glycin-2.2.6/Cargo.toml b/glycin-2.2.6/Cargo.toml
+index edfe9b4..fed53f9 100644
+--- a/glycin-2.2.6/Cargo.toml
++++ b/glycin-2.2.6/Cargo.toml
+@@ -115,6 +115,10 @@ zbus = { version = "5.15.0", default-features = false, features = ["p2p"] }
+ zvariant = { version = "5.9.2", default-features = false }
+ zerocopy = "0.8.12"
+ 
++[patch.crates-io]
++glycin-core = { path = "../glycin-core-4.0.5" }
++glycin-builtin = { path = "../glycin-builtin-4.0.5" }
++
+ [workspace.metadata.cross.target.x86_64-pc-windows-gnu]
+ dockerfile = "build-aux/cross/Dockerfile.windows"
+ 
+diff --git a/glycin-builtin-4.0.5/Cargo.toml b/glycin-builtin-4.0.5/Cargo.toml
+index b1cb9e8..45ca57d 100644
+--- a/glycin-builtin-4.0.5/Cargo.toml
++++ b/glycin-builtin-4.0.5/Cargo.toml
+@@ -43,7 +43,7 @@ path = "src/lib.rs"
+ 
+ [dependencies.glycin-core]
+ version = "4.0.5"
+-features = ["builtin-image-rs"]
++features = ["builtin-image-rs", "builtin-svg", "builtin-heif"]
+ default-features = false
+ 
+ [lints.clippy]
+diff --git a/glycin-core-4.0.5/Cargo.toml b/glycin-core-4.0.5/Cargo.toml
+index a94407f..2323c07 100644
+--- a/glycin-core-4.0.5/Cargo.toml
++++ b/glycin-core-4.0.5/Cargo.toml
+@@ -56,6 +56,8 @@ builtin-image-rs = [
+     "dep:glycin-image-rs",
+     "builtin",
+ ]
++builtin-svg = ["dep:glycin-svg", "builtin"]
++builtin-heif = ["dep:glycin-heif", "builtin"]
+ builtin-test = [
+     "dep:glycin-test",
+     "builtin",
+@@ -155,6 +157,18 @@ features = ["builtin"]
+ optional = true
+ default-features = false
+ 
++[dependencies.glycin-svg]
++path = "../glycin-2.2.6/glycin-loaders/glycin-svg"
++features = ["builtin"]
++optional = true
++default-features = false
++
++[dependencies.glycin-heif]
++path = "../glycin-2.2.6/glycin-loaders/glycin-heif"
++features = ["builtin"]
++optional = true
++default-features = false
++
+ [dependencies.glycin-test]
+ version = "2.2.0"
+ features = ["builtin"]

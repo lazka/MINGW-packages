@@ -1,0 +1,185 @@
+diff --git a/glycin-core/src/api/creator.rs b/glycin-core/src/api/creator.rs
+index cb694a7..28a3036 100644
+--- a/glycin-core/src/api/creator.rs
++++ b/glycin-core/src/api/creator.rs
+@@ -226,6 +226,19 @@ impl Creator {
+                             )
+                         });
+                     }
++                    #[cfg(feature = "builtin-svg")]
++                    config::BuiltinProcessor::Svg(_) => {
++                        return Err(Error::from(
++                            glycin_utils::ProcessError::UnsupportedImageFormat(mime_type)
++                                .into_editor_error(),
++                        ));
++                    }
++                    #[cfg(feature = "builtin-heif")]
++                    config::BuiltinProcessor::Heif(_) => {
++                        editor_function = Box::new(move || {
++                            glycin_heif::ImgEditor::create(mime_type, new_image, encoding_options)
++                        });
++                    }
+                     #[cfg(feature = "builtin-test")]
+                     config::BuiltinProcessor::Test(_) => {
+                         editor_function = Box::new(move || {
+diff --git a/glycin-core/src/api/editor.rs b/glycin-core/src/api/editor.rs
+index 53c41ec..5ed49bc 100644
+--- a/glycin-core/src/api/editor.rs
++++ b/glycin-core/src/api/editor.rs
+@@ -164,6 +164,20 @@ impl Editor {
+                                 .map(|e| ImageEditorBuiltin::ImageRs(Arc::new(e)))
+                         });
+                     }
++                    #[cfg(feature = "builtin-svg")]
++                    config::BuiltinProcessor::Svg(_) => {
++                        return Err(Error::from(
++                            glycin_utils::ProcessError::UnsupportedImageFormat(mime_type)
++                                .into_editor_error(),
++                        ));
++                    }
++                    #[cfg(feature = "builtin-heif")]
++                    config::BuiltinProcessor::Heif(_) => {
++                        return Err(Error::from(
++                            glycin_utils::ProcessError::UnsupportedImageFormat(mime_type)
++                                .into_editor_error(),
++                        ));
++                    }
+                     #[cfg(feature = "builtin-test")]
+                     config::BuiltinProcessor::Test(_) => {
+                         edit_function = Box::new(move || {
+diff --git a/glycin-core/src/api/loader.rs b/glycin-core/src/api/loader.rs
+index 5741598..22e5015 100644
+--- a/glycin-core/src/api/loader.rs
++++ b/glycin-core/src/api/loader.rs
+@@ -301,6 +301,32 @@ impl Loader {
+                     )
+                 });
+             }
++            #[cfg(feature = "builtin-svg")]
++            config::BuiltinProcessor::Svg(_) => {
++                init_function = Box::new(|stream, mime_type, details| {
++                    glycin_svg::ImgDecoder::load(stream, mime_type, details).map(
++                        |(decoder, details)| {
++                            (
++                                ImageBuiltinLoader::Svg(Arc::new(Mutex::new(decoder))),
++                                details,
++                            )
++                        },
++                    )
++                });
++            }
++            #[cfg(feature = "builtin-heif")]
++            config::BuiltinProcessor::Heif(_) => {
++                init_function = Box::new(|stream, mime_type, details| {
++                    glycin_heif::ImgDecoder::load(stream, mime_type, details).map(
++                        |(decoder, details)| {
++                            (
++                                ImageBuiltinLoader::Heif(Arc::new(Mutex::new(decoder))),
++                                details,
++                            )
++                        },
++                    )
++                });
++            }
+             #[cfg(feature = "builtin-test")]
+             config::BuiltinProcessor::Test(_) => {
+                 init_function = Box::new(|stream, mime_type, details| {
+@@ -477,6 +503,26 @@ impl Image {
+                                 .specific_frame::<LocalMemory>(frame_request)
+                         });
+                     }
++                    #[cfg(feature = "builtin-svg")]
++                    ImageBuiltinLoader::Svg(loader) => {
++                        let loader = loader.to_owned();
++                        editor_function = Box::new(move || {
++                            loader
++                                .lock()
++                                .unwrap()
++                                .specific_frame::<LocalMemory>(frame_request)
++                        });
++                    }
++                    #[cfg(feature = "builtin-heif")]
++                    ImageBuiltinLoader::Heif(loader) => {
++                        let loader = loader.to_owned();
++                        editor_function = Box::new(move || {
++                            loader
++                                .lock()
++                                .unwrap()
++                                .specific_frame::<LocalMemory>(frame_request)
++                        });
++                    }
+                     #[cfg(feature = "builtin-test")]
+                     ImageBuiltinLoader::Test(editor) => {
+                         let editor = editor.to_owned();
+@@ -598,6 +644,10 @@ struct ImageExternalLoader {
+ enum ImageBuiltinLoader {
+     #[cfg(feature = "builtin-image-rs")]
+     ImageRs(Arc<Mutex<glycin_image_rs::ImgLoader>>),
++    #[cfg(feature = "builtin-svg")]
++    Svg(Arc<Mutex<glycin_svg::ImgDecoder>>),
++    #[cfg(feature = "builtin-heif")]
++    Heif(Arc<Mutex<glycin_heif::ImgDecoder>>),
+     #[cfg(feature = "builtin-test")]
+     Test(Arc<Mutex<glycin_test::ImgDecoder>>),
+ }
+diff --git a/glycin-core/src/config.rs b/glycin-core/src/config.rs
+index c40725d..b9acb59 100644
+--- a/glycin-core/src/config.rs
++++ b/glycin-core/src/config.rs
+@@ -339,6 +339,16 @@ impl Config {
+         )
+         .await;
+ 
++        #[cfg(feature = "builtin-svg")]
++        Self::load_builtin_config(BuiltinProcessor::Svg(glycin_svg::BuiltinSvg), &mut config).await;
++
++        #[cfg(feature = "builtin-heif")]
++        Self::load_builtin_config(
++            BuiltinProcessor::Heif(glycin_heif::BuiltinHeif),
++            &mut config,
++        )
++        .await;
++
+         #[cfg(feature = "builtin-test")]
+         Self::load_builtin_config(
+             BuiltinProcessor::Test(glycin_test::BuiltinTest),
+@@ -690,6 +700,10 @@ pub enum ConfigSource {
+ pub enum BuiltinProcessor {
+     #[cfg(feature = "builtin-image-rs")]
+     ImageRs(glycin_image_rs::BuiltinImageRs),
++    #[cfg(feature = "builtin-svg")]
++    Svg(glycin_svg::BuiltinSvg),
++    #[cfg(feature = "builtin-heif")]
++    Heif(glycin_heif::BuiltinHeif),
+     #[cfg(feature = "builtin-test")]
+     Test(glycin_test::BuiltinTest),
+ }
+@@ -700,6 +714,10 @@ impl BuiltinProcessor {
+         match self {
+             #[cfg(feature = "builtin-image-rs")]
+             Self::ImageRs(processor) => processor,
++            #[cfg(feature = "builtin-svg")]
++            Self::Svg(processor) => processor,
++            #[cfg(feature = "builtin-heif")]
++            Self::Heif(processor) => processor,
+             #[cfg(feature = "builtin-test")]
+             Self::Test(processor) => processor,
+         }
+diff --git a/glycin-core/src/lib.rs b/glycin-core/src/lib.rs
+index 61d27dc..a9cef99 100644
+--- a/glycin-core/src/lib.rs
++++ b/glycin-core/src/lib.rs
+@@ -32,7 +32,12 @@ mod error_message {
+ 
+ #[cfg(all(
+     feature = "builtin",
+-    not(any(feature = "builtin-image-rs", feature = "builtin-test"))
++    not(any(
++        feature = "builtin-image-rs",
++        feature = "builtin-svg",
++        feature = "builtin-heif",
++        feature = "builtin-test"
++    ))
+ ))]
+ compile_error!(
+     "At least one builtin loader feature like 'builtin-image-rs' has to be enabled if 'builtin' is enabled."
